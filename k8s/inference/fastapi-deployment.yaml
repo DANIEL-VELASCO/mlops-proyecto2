@@ -17,7 +17,7 @@ spec:
       containers:
         - name: fastapi
           # NOTA: Cambia 'tu_usuario' por tu usuario real de DockerHub cuando construyas la imagen
-          image: tu_usuario/mlops-api:latest 
+          image: max181818/mlops-api:latest 
           ports:
             - containerPort: 8000
           env:
