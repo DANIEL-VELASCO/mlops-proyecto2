@@ -20,9 +20,9 @@ def compare_with_champion(run_id, model_name, alias, metric) -> bool:
 
 def promote_champion(run_id, model_name, alias):
     client = MlflowClient()
-    versions = client.get_latest_versions(model_name)
-    
-    # Buscar la versión que corresponde a este run_id exacto
+    # search_model_versions busca en todas las versiones, no solo la última
+    versions = client.search_model_versions(f"name='{model_name}'")
+
     version = next((v for v in versions if v.run_id == run_id), None)
     if version is None:
         raise ValueError(f"No se encontró versión registrada para run_id={run_id}")
