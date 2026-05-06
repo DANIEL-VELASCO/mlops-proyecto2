@@ -37,6 +37,13 @@ def try_load_model():
     except Exception as e:
         logger.warning(f"Modelo no disponible en startup (se cargará en la primera predicción): {e}")
 
+def reload_model():
+    """Fuerza la recarga del modelo desde MLflow. Útil cuando cambia el champion."""
+    global _model, _model_info
+    _model = None
+    _model_info = {}
+    load_model()
+
 def get_model():
     if _model is None:
         load_model()  # lanza excepción si sigue sin estar disponible → HTTP 500

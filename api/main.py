@@ -5,7 +5,7 @@ from starlette.responses import Response
 
 # Importaciones relativas dentro del paquete api/
 from .schemas import PredictRequest, PredictResponse
-from .model_loader import get_model, get_model_info
+from .model_loader import get_model, get_model_info, reload_model
 from .db_logger import log_inference
 
 app = FastAPI(title="Diabetes MLOps API", version="1.0")
@@ -21,6 +21,12 @@ def health():
 @app.get("/model-info")
 def model_info():
     return get_model_info()
+
+@app.post("/reload-model")
+def reload():
+    reload_model()
+    info = get_model_info()
+    return {"status": "ok", "model_version": info["model_version"], "model_alias": info["model_alias"]}
 
 @app.get("/metrics")
 def metrics():
