@@ -120,6 +120,9 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: airflow-data-pvc
+        - name: training-module
+          configMap:
+            name: airflow-training-module
 
 ---
 # ── Scheduler ─────────────────────────────────────────────
@@ -160,12 +163,14 @@ spec:
               mountPath: /opt/airflow/logs
             - name: data
               mountPath: /opt/airflow/data
+            - name: training-module
+              mountPath: /opt/airflow/training
           resources:
             requests:
               memory: "1Gi"
               cpu: "250m"
             limits:
-              memory: "3Gi"
+              memory: "5Gi"
               cpu: "1000m"
           livenessProbe:
             exec:
@@ -188,3 +193,6 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: airflow-data-pvc
+        - name: training-module
+          configMap:
+            name: airflow-training-module

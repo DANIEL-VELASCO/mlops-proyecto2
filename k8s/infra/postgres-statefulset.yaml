@@ -46,13 +46,16 @@ spec:
             exec:
               command: ["pg_isready", "-U", "mlops_user", "-d", "mlops_db"]
             initialDelaySeconds: 10
-            periodSeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           livenessProbe:
             exec:
               command: ["pg_isready", "-U", "mlops_user", "-d", "mlops_db"]
             initialDelaySeconds: 60
             periodSeconds: 15
-            failureThreshold: 5
+            failureThreshold: 10
+            timeoutSeconds: 10
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data

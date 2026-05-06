@@ -5,7 +5,7 @@ from starlette.responses import Response
 
 # Importaciones relativas dentro del paquete api/
 from .schemas import PredictRequest, PredictResponse
-from .model_loader import get_model, get_model_info, load_model
+from .model_loader import get_model, get_model_info, try_load_model
 from .db_logger import log_inference
 
 app = FastAPI(title="Diabetes MLOps API", version="1.0")
@@ -16,7 +16,7 @@ LATENCY = Histogram("api_latency_seconds", "Latency", ["endpoint"])
 
 @app.on_event("startup")
 def startup():
-    load_model()
+    try_load_model()
 
 @app.get("/health")
 def health():

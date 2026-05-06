@@ -36,7 +36,7 @@ spec:
             - name: POSTGRES_PORT
               value: "5432"
             - name: POSTGRES_DB
-              value: "mlops_db"
+              value: "mlflow_db"
             - name: MINIO_BUCKET
               value: "mlflow-artifacts"
             - name: MLFLOW_S3_ENDPOINT_URL

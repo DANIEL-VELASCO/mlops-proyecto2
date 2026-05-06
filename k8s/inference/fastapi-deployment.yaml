@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: fastapi
-          image: max181818/mlops-api:latest
-          imagePullPolicy: Always
+          image: garzonds201/mlops-api:latest
+          imagePullPolicy: Never
           ports:
             - containerPort: 8000
           env:
@@ -34,6 +34,18 @@ spec:
               value: "diabetes_model"
             - name: MLFLOW_MODEL_ALIAS
               value: "champion"
+            - name: MLFLOW_S3_ENDPOINT_URL
+              value: "http://minio-service:9000"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: mlops-secrets
+                  key: MINIO_ACCESS_KEY
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mlops-secrets
+                  key: MINIO_SECRET_KEY
           envFrom:
             - secretRef:
                 name: mlops-secrets
