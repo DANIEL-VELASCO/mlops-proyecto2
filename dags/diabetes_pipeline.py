@@ -230,12 +230,23 @@ def t3_validate_quality(**context):
             params={"bid": batch_id},
         )
 
-    # Deserializar JSONB → DataFrame
-    records = [json.loads(r) for r in df_raw["raw_data"]]
+    # Deserializar JSONB → DataFrame (psycopg2 ya lo convierte a dict)
+    records = [r if isinstance(r, dict) else json.loads(r) for r in df_raw["raw_data"]]
     df = pd.DataFrame(records).replace("?", np.nan)
 
-    # Validar umbral de nulos por columna
-    null_ratios = df.isnull().mean()
+    # Validar solo columnas numéricas del contrato (las columnas con alta
+    # tasa de nulos por diseño — weight, payer_code, A1Cresult, max_glu_serum —
+    # se eliminan o se imputan en preprocessing, no se validan aquí)
+    COLS_TO_VALIDATE = [
+        "time_in_hospital", "num_lab_procedures", "num_procedures",
+        "num_medications", "number_outpatient", "number_emergency",
+        "number_inpatient", "number_diagnoses", "age",
+        "gender", "race", "admission_type_id",
+        "discharge_disposition_id", "admission_source_id",
+        "metformin", "insulin", "readmitted",
+    ]
+    df_check = df[[c for c in COLS_TO_VALIDATE if c in df.columns]]
+    null_ratios = df_check.isnull().mean()
     bad_cols    = null_ratios[null_ratios > 0.5].to_dict()
 
     if bad_cols:
@@ -264,9 +275,8 @@ def t3_validate_quality(**context):
 
 def t4_preprocess(**context):
     """
-    Lee todas las filas validadas de raw.diabetes_raw.
-    Aplica el pipeline de preprocessing.py (contrato con Persona 3).
-    Publica el DataFrame limpio en XCom (como JSON).
+    Lee las filas validadas de raw.diabetes_raw, aplica preprocessing y
+    escribe directamente en clean.diabetes_clean. Solo pasa batch_id por XCom.
     """
     ti       = context["ti"]
     batch_id = ti.xcom_pull(key="validated_batch_id", task_ids="t3_validate_quality")
@@ -284,44 +294,17 @@ def t4_preprocess(**context):
             params={"bid": batch_id},
         )
 
-    records = [json.loads(r) for r in df_raw["raw_data"]]
+    records = [r if isinstance(r, dict) else json.loads(r) for r in df_raw["raw_data"]]
     df = pd.DataFrame(records)
 
-    # Importar pipeline de preprocessing (training/preprocessing.py)
     from training.preprocessing import run_preprocessing
     df_clean = run_preprocessing(df)
+    df_clean["batch_id"]            = batch_id
+    df_clean["processed_timestamp"] = datetime.utcnow()
 
     logging.info(f"Preprocessing completado: {df_clean.shape[0]} filas, {df_clean.shape[1]} columnas")
 
-    # Publicar en XCom como JSON (batches pequeños ≤15k filas, seguro)
-    context["ti"].xcom_push(key="df_clean_json", value=df_clean.to_json(orient="records"))
-    context["ti"].xcom_push(key="clean_batch_id", value=batch_id)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# TAREA 5 — Almacenar datos limpios en clean.diabetes_clean
-# ─────────────────────────────────────────────────────────────────────────────
-
-def t5_store_clean(**context):
-    """
-    Inserta el DataFrame limpio en clean.diabetes_clean.
-    Evita duplicados por batch_id (idempotente).
-    """
-    ti            = context["ti"]
-    df_clean_json = ti.xcom_pull(key="df_clean_json",  task_ids="t4_preprocess")
-    batch_id      = ti.xcom_pull(key="clean_batch_id", task_ids="t4_preprocess")
-
-    if not df_clean_json or not batch_id:
-        logging.warning("Sin datos limpios — saltando almacenamiento clean.")
-        return
-
-    df_clean = pd.read_json(df_clean_json, orient="records")
-    df_clean["batch_id"]             = batch_id
-    df_clean["processed_timestamp"]  = datetime.utcnow()
-
-    engine = create_engine(DB_CONN_STR)
-
-    # Idempotencia: eliminar registros previos del mismo batch_id
+    # Escritura directa a BD — no se pasan datos por XCom
     with engine.begin() as conn:
         conn.execute(
             text("DELETE FROM clean.diabetes_clean WHERE batch_id = :bid"),
@@ -336,8 +319,38 @@ def t5_store_clean(**context):
             method="multi",
         )
 
-    logging.info(f"Batch '{batch_id}' almacenado en clean.diabetes_clean: {len(df_clean)} filas")
+    logging.info(f"Batch '{batch_id}' escrito en clean.diabetes_clean: {len(df_clean)} filas")
+    context["ti"].xcom_push(key="clean_batch_id", value=batch_id)
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TAREA 5 — Verificar almacenamiento en clean.diabetes_clean
+# ─────────────────────────────────────────────────────────────────────────────
+
+def t5_store_clean(**context):
+    """
+    Verifica que el batch fue escrito correctamente en clean.diabetes_clean.
+    Los datos ya fueron insertados por t4 — aquí solo se valida el conteo.
+    """
+    ti       = context["ti"]
+    batch_id = ti.xcom_pull(key="clean_batch_id", task_ids="t4_preprocess")
+
+    if not batch_id:
+        logging.warning("Sin batch_id de t4 — saltando verificación.")
+        return
+
+    engine = create_engine(DB_CONN_STR)
+
+    with engine.connect() as conn:
+        count = conn.execute(
+            text("SELECT COUNT(*) FROM clean.diabetes_clean WHERE batch_id = :bid"),
+            {"bid": batch_id},
+        ).scalar()
+
+    if count == 0:
+        raise ValueError(f"Batch '{batch_id}' no encontrado en clean.diabetes_clean")
+
+    logging.info(f"Verificación OK: batch '{batch_id}' tiene {count} filas en clean.diabetes_clean")
     context["ti"].xcom_push(key="stored_batch_id", value=batch_id)
 
 

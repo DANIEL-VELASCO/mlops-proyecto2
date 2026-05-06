@@ -24,6 +24,9 @@ data:
 
   # Variables del proyecto
   AIRFLOW_DAG_ID:          "diabetes_mlops_pipeline"
+  AIRFLOW__SCHEDULER__SCHEDULER_HEARTBEAT_SEC: "10"
+  AIRFLOW__SCHEDULER__SCHEDULER_HEALTH_CHECK_THRESHOLD: "120"
+  PYTHONPATH: "/opt/airflow"
   BATCH_SIZE:              "15000"
   SOURCE_FILE:             "/opt/airflow/data/diabetic_data.csv"
 

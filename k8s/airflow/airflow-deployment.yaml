@@ -26,10 +26,36 @@ spec:
         component: webserver
     spec:
       initContainers:
-        # Inicializa la base de datos de Airflow antes de arrancar
-        - name: airflow-init
-          image: garzonds/mlops-airflow:latest
+        - name: airflow-db-migrate
+          image: garzonds201/mlops-airflow:latest
+          imagePullPolicy: Always
           command: ["airflow", "db", "migrate"]
+          envFrom:
+            - configMapRef:
+                name: airflow-config
+            - secretRef:
+                name: mlops-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+        - name: airflow-create-admin
+          image: garzonds201/mlops-airflow:latest
+          imagePullPolicy: Always
+          command:
+            - bash
+            - -c
+            - |
+              airflow users create \
+                --username admin \
+                --password $(AIRFLOW_ADMIN_PASSWORD) \
+                --firstname Admin \
+                --lastname MLOps \
+                --role Admin \
+                --email admin@mlops.local 2>/dev/null || true
           envFrom:
             - configMapRef:
                 name: airflow-config
@@ -45,7 +71,8 @@ spec:
 
       containers:
         - name: airflow-webserver
-          image: garzonds/mlops-airflow:latest
+          image: garzonds201/mlops-airflow:latest
+          imagePullPolicy: Always
           command: ["airflow", "webserver"]
           ports:
             - containerPort: 8080
@@ -72,16 +99,16 @@ spec:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 10
-            failureThreshold: 5
+            failureThreshold: 10
           livenessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 60
+            initialDelaySeconds: 120
             periodSeconds: 20
-            failureThreshold: 3
+            failureThreshold: 5
 
       volumes:
         - name: dags
@@ -118,7 +145,8 @@ spec:
     spec:
       containers:
         - name: airflow-scheduler
-          image: garzonds/mlops-airflow:latest
+          image: garzonds201/mlops-airflow:latest
+          imagePullPolicy: Always
           command: ["airflow", "scheduler"]
           envFrom:
             - configMapRef:
@@ -134,10 +162,10 @@ spec:
               mountPath: /opt/airflow/data
           resources:
             requests:
-              memory: "512Mi"
+              memory: "1Gi"
               cpu: "250m"
             limits:
-              memory: "1Gi"
+              memory: "3Gi"
               cpu: "1000m"
           livenessProbe:
             exec:
@@ -145,9 +173,10 @@ spec:
                 - sh
                 - -c
                 - airflow jobs check --job-type SchedulerJob --hostname "$(hostname)"
-            initialDelaySeconds: 60
-            periodSeconds: 30
-            failureThreshold: 3
+            initialDelaySeconds: 120
+            periodSeconds: 60
+            failureThreshold: 5
+            timeoutSeconds: 30
 
       volumes:
         - name: dags

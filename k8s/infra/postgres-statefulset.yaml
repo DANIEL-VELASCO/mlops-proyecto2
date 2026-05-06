@@ -44,14 +44,15 @@ spec:
               cpu: "500m"
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "mlops_user"]
+              command: ["pg_isready", "-U", "mlops_user", "-d", "mlops_db"]
             initialDelaySeconds: 10
             periodSeconds: 5
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "mlops_user"]
-            initialDelaySeconds: 30
-            periodSeconds: 10
+              command: ["pg_isready", "-U", "mlops_user", "-d", "mlops_db"]
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 5
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data

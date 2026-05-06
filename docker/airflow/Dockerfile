@@ -25,6 +25,3 @@ RUN pip install --no-cache-dir -r /requirements.txt
 
 # Copiar el módulo de training para que el DAG pueda importarlo
 COPY training/ /opt/airflow/training/
-
-# Copiar los DAGs
-COPY dags/ /opt/airflow/dags/
