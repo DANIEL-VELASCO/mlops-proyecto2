@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fastapi-deployment
+  namespace: mlops
   labels:
     app: fastapi
 spec:
@@ -16,8 +17,8 @@ spec:
     spec:
       containers:
         - name: fastapi
-          # NOTA: Cambia 'tu_usuario' por tu usuario real de DockerHub cuando construyas la imagen
-          image: max181818/mlops-api:latest 
+          image: max181818/mlops-api:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           env:
@@ -25,10 +26,6 @@ spec:
               value: "postgres-service"
             - name: POSTGRES_PORT
               value: "5432"
-            - name: POSTGRES_USER
-              value: "mlops_user"
-            - name: POSTGRES_PASSWORD
-              value: "mlops_pass"
             - name: POSTGRES_DB
               value: "mlops_db"
             - name: MLFLOW_TRACKING_URI
@@ -37,6 +34,9 @@ spec:
               value: "diabetes_model"
             - name: MLFLOW_MODEL_ALIAS
               value: "champion"
+          envFrom:
+            - secretRef:
+                name: mlops-secrets
           resources:
             requests:
               memory: "256Mi"
@@ -50,9 +50,11 @@ spec:
               port: 8000
             initialDelaySeconds: 15
             periodSeconds: 5
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /health
               port: 8000
             initialDelaySeconds: 30
             periodSeconds: 10
+            failureThreshold: 3

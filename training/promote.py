@@ -23,8 +23,10 @@ def promote_champion(run_id, model_name, alias):
     versions = client.get_latest_versions(model_name)
     
     # Buscar la versión que corresponde a este run_id exacto
-    version = next(v for v in versions if v.run_id == run_id)
-    
+    version = next((v for v in versions if v.run_id == run_id), None)
+    if version is None:
+        raise ValueError(f"No se encontró versión registrada para run_id={run_id}")
+
     # Asignar el alias 'champion' a esta nueva versión ganadora
     client.set_registered_model_alias(
         name=model_name,
