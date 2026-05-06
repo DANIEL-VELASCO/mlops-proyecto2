@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streamlit-deployment
+  labels:
+    app: streamlit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: streamlit
+  template:
+    metadata:
+      labels:
+        app: streamlit
+    spec:
+      containers:
+        - name: streamlit
+          # NOTA: Cambia 'tu_usuario' por tu usuario real de DockerHub
+          image: max181818/mlops-frontend:latest
+          ports:
+            - containerPort: 8501
+          env:
+            - name: API_URL
+              value: "http://fastapi-service:8000/predict"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
