@@ -161,6 +161,34 @@ mlops-proyecto2/
 
 ---
 
+## Evidencias de Ejecución
+
+### Airflow — DAG completo (10/10 tareas en verde)
+
+![Airflow DAG](docs/screenshots/airflow_dag.png)
+
+![Airflow Grid](docs/screenshots/airflow_grid.png)
+
+### MLflow — Experimentos y métricas de los modelos entrenados
+
+Cada ejecución del pipeline entrena 3 modelos candidatos (LogisticRegression, RandomForest n=50 depth=10, RandomForest n=100 depth=15), los registra como versiones independientes en el Model Registry y promueve automáticamente el de mayor ROC-AUC como `@champion`.
+
+![MLflow Experiments](docs/screenshots/mlflow_experiments.png)
+
+### FastAPI — Endpoint /predict funcionando
+
+![FastAPI Predict](docs/screenshots/fastapi_predict.png)
+
+### Prometheus — Métricas de la API en tiempo real
+
+![Prometheus Metrics](docs/screenshots/prometheus_metrics.png)
+
+### Streamlit — Interfaz de predicción
+
+![Streamlit UI](docs/screenshots/streamlit_ui.png)
+
+---
+
 ## Contratos entre Personas
 
 El proyecto fue diseñado con contratos fijos e inmutables para garantizar la integración entre los tres integrantes.
@@ -213,6 +241,9 @@ graph LR
 | `/predict` | POST | Predicción con las 17 features |
 | `/model-info` | GET | Metadatos del modelo champion activo |
 | `/metrics` | GET | Métricas Prometheus para scraping |
+| `/reload-model` | POST | Recarga el modelo champion desde MLflow sin reiniciar la API |
+
+> **Estrategia de carga del modelo:** carga lazy en el primer request + caché en memoria. Si el modelo champion cambia en MLflow, basta con llamar `POST /reload-model` para que la API descargue la nueva versión sin modificar código ni reiniciar pods.
 
 ---
 
@@ -578,10 +609,18 @@ graph TD
 
 ## Modelo de Machine Learning
 
-- **Algoritmo:** Random Forest Classifier
-- **Librería:** scikit-learn 1.4.0
-- **Registro:** MLflow Model Registry con alias `champion`
-- **Métricas evaluadas:** ROC-AUC, F1-Score, Recall
+En cada ejecución del DAG, la tarea `t7_train_model` entrena **3 modelos candidatos** en paralelo, los registra todos en MLflow como versiones independientes y retorna el de mejor ROC-AUC para que `t9_compare_models` lo evalúe contra el champion actual.
+
+| Candidato | Parámetros | Notas |
+|-----------|-----------|-------|
+| LogisticRegression | C=1.0, max_iter=200, solver=lbfgs | Baseline rápido |
+| RandomForest | n_estimators=50, max_depth=10 | Balance velocidad/precisión |
+| RandomForest | n_estimators=100, max_depth=15 | Mayor capacidad |
+
+- **Librería:** scikit-learn
+- **Registro:** MLflow Model Registry — todas las versiones quedan versionadas
+- **Alias de producción:** `@champion` — apunta siempre al mejor modelo evaluado
+- **Métricas de evaluación:** ROC-AUC (criterio principal), F1-Score, Recall
 - **Criterio de promoción:** ROC-AUC estrictamente mayor al champion actual
 - **Artifact store:** MinIO (compatible S3)
 
