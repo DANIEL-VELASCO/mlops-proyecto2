@@ -18,35 +18,12 @@ spec:
       containers:
         - name: fastapi
           image: garzonds201/mlops-api:latest
-          imagePullPolicy: Never
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
-          env:
-            - name: POSTGRES_HOST
-              value: "postgres-service"
-            - name: POSTGRES_PORT
-              value: "5432"
-            - name: POSTGRES_DB
-              value: "mlops_db"
-            - name: MLFLOW_TRACKING_URI
-              value: "http://mlflow-service:5000"
-            - name: MLFLOW_MODEL_NAME
-              value: "diabetes_model"
-            - name: MLFLOW_MODEL_ALIAS
-              value: "champion"
-            - name: MLFLOW_S3_ENDPOINT_URL
-              value: "http://minio-service:9000"
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: mlops-secrets
-                  key: MINIO_ACCESS_KEY
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: mlops-secrets
-                  key: MINIO_SECRET_KEY
           envFrom:
+            - configMapRef:
+                name: fastapi-config
             - secretRef:
                 name: mlops-secrets
           resources:

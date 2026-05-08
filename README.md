@@ -123,6 +123,46 @@ flowchart TD
 
 ---
 
+## Recursos del Cluster por Componente
+
+Cada contenedor tiene definidos explícitamente `resources.requests` (garantizados por el scheduler de Kubernetes) y `resources.limits` (techo máximo antes de OOM-kill o throttling de CPU).
+
+| Componente | Tipo | Réplicas | CPU Request | CPU Limit | Mem Request | Mem Limit |
+|-----------|------|:--------:|:-----------:|:---------:|:-----------:|:---------:|
+| **PostgreSQL** | StatefulSet | 1 | 250m | 500m | 256Mi | 512Mi |
+| **MinIO** | StatefulSet | 1 | 250m | 500m | 256Mi | 512Mi |
+| **Airflow Webserver** | Deployment | 1 | 250m | 500m | 512Mi | 1Gi |
+| **Airflow Scheduler** | Deployment | 1 | 250m | 1000m | 1Gi | 5Gi |
+| **MLflow** | Deployment | 1 | 250m | 500m | 512Mi | 1Gi |
+| **FastAPI** | Deployment | 2 | 250m c/u | 1000m c/u | 256Mi c/u | 512Mi c/u |
+| **Streamlit** | Deployment | 1 | 100m | 500m | 128Mi | 256Mi |
+| **Prometheus** | Deployment | 1 | 250m | 500m | 256Mi | 512Mi |
+| **Grafana** | Deployment | 1 | 100m | 300m | 128Mi | 256Mi |
+| **Locust** | Deployment | 1 | 100m | 300m | 128Mi | 256Mi |
+
+> **Init containers de Airflow Webserver** (`airflow-db-migrate`, `airflow-create-admin`): 250m CPU / 512Mi mem cada uno (corren secuencialmente y terminan antes de que arranque el webserver).
+
+### Totales del cluster
+
+| | CPU Request | CPU Limit | Mem Request | Mem Limit |
+|-|:-----------:|:---------:|:-----------:|:---------:|
+| **Total (12 contenedores¹)** | **2.3 cores** | **7.1 cores** | **~3.6 Gi** | **~10.3 Gi** |
+
+> ¹ FastAPI cuenta como 2 réplicas × los valores de una instancia.
+
+### Justificación de valores críticos
+
+**Airflow Scheduler — límite 5 Gi RAM / 1000m CPU**
+El scheduler ejecuta las tareas con `LocalExecutor` en el mismo pod. Durante `t7_train_model` (entrenamiento de 3 modelos RandomForest sobre ~15k filas) el proceso hijo puede consumir hasta ~2.5 Gi por picos de matrices NumPy + el proceso base del scheduler (~400 Mi). Se configuró margen amplio para evitar OOM-kill (ver Problema 1 en la sección de troubleshooting).
+
+**FastAPI — límite 1000m CPU**
+El endpoint `/predict` aplica `model.predict_proba()` de scikit-learn de forma síncrona. Con 2 réplicas y picos de carga de Locust, se reserva hasta 1 core completo por réplica para evitar throttling en inferencia.
+
+**MLflow — 512Mi request / 1 Gi límite**
+El servidor MLflow mantiene workers de Gunicorn en memoria. Al servir artefactos (modelos ~350 Mi serializados) a través del artifact proxy, el uso puede subir temporalmente hasta ~800 Mi.
+
+---
+
 ## Estructura del Repositorio
 
 ```

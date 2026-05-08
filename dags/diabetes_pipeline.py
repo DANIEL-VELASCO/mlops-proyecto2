@@ -424,9 +424,11 @@ def t7_train_model(**context):
     """
     Llama a training.train.run_training() — implementado por Persona 3.
     Recibe run_id, model_version y métricas.
+    Consume split_path de t6 para usar los archivos CSV pre-divididos (70/15/15).
     """
     ti         = context["ti"]
     batch_id   = ti.xcom_pull(key="stored_batch_id", task_ids="t5_store_clean")
+    split_path = ti.xcom_pull(key="split_path",      task_ids="t6_split_data")
 
     # Interfaz acordada con Persona 3
     from training.train import run_training
@@ -437,6 +439,7 @@ def t7_train_model(**context):
         experiment_name=EXPERIMENT,
         model_name=MODEL_NAME,
         batch_id=batch_id,
+        split_path=split_path,
     )
 
     logging.info(
@@ -480,9 +483,9 @@ def t8_register_mlflow(**context):
     logging.info(
         f"MLflow run verificado | run_id: {run_id} | "
         f"model_version: {version} | "
-        f"roc_auc: {metrics.get('roc_auc')} | "
-        f"f1: {metrics.get('f1')} | "
-        f"recall: {metrics.get('recall')}"
+        f"val_roc_auc: {metrics.get('val_roc_auc')} | "
+        f"val_f1: {metrics.get('val_f1')} | "
+        f"val_recall: {metrics.get('val_recall')}"
     )
 
     context["ti"].xcom_push(key="verified_run_id", value=run_id)
@@ -506,7 +509,7 @@ def t9_compare_models(**context):
         run_id=run_id,
         model_name=MODEL_NAME,
         alias=MODEL_ALIAS,
-        metric="roc_auc",
+        metric="val_roc_auc",
     )
 
     logging.info(
@@ -551,7 +554,7 @@ def t10_promote_champion(**context):
     logging.info(
         f"✅ Nuevo champion promovido | run_id: {run_id} | "
         f"model: {MODEL_NAME} | alias: {MODEL_ALIAS} | "
-        f"roc_auc: {metrics.get('roc_auc')}"
+        f"val_roc_auc: {metrics.get('val_roc_auc')}"
     )
 
 

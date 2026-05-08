@@ -16,15 +16,18 @@ spec:
       containers:
         - name: grafana
           image: grafana/grafana:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: grafana-config
           env:
-            - name: GF_SECURITY_ADMIN_USER
-              value: admin
             - name: GF_SECURITY_ADMIN_PASSWORD
-              value: admin123
-            - name: GF_AUTH_ANONYMOUS_ENABLED
-              value: "false"
+              valueFrom:
+                secretKeyRef:
+                  name: mlops-secrets
+                  key: GRAFANA_ADMIN_PASSWORD
           resources:
             requests:
               memory: "128Mi"
@@ -38,12 +41,21 @@ spec:
               port: 3000
             initialDelaySeconds: 15
             periodSeconds: 10
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /api/health
               port: 3000
             initialDelaySeconds: 30
             periodSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+      volumes:
+        - name: grafana-data
+          persistentVolumeClaim:
+            claimName: grafana-data-pvc
 ---
 apiVersion: v1
 kind: Service
