@@ -1,29 +1,29 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class PredictRequest(BaseModel):
-    age: int
-    time_in_hospital: int
-    num_lab_procedures: int
-    num_procedures: int
-    num_medications: int
-    number_outpatient: int
-    number_emergency: int
-    number_inpatient: int
-    number_diagnoses: int
-    race_encoded: int
-    gender_encoded: int
-    admission_type_encoded: int
-    discharge_encoded: int
-    admission_source_encoded: int
-    a1c_result_encoded: int
-    metformin_encoded: int
-    insulin_encoded: int
+    age: int = Field(..., ge=5, le=95)
+    time_in_hospital: int = Field(..., ge=1, le=14)
+    num_lab_procedures: int = Field(..., ge=0, le=132)
+    num_procedures: int = Field(..., ge=0, le=6)
+    num_medications: int = Field(..., ge=1, le=81)
+    number_outpatient: int = Field(..., ge=0)
+    number_emergency: int = Field(..., ge=0)
+    number_inpatient: int = Field(..., ge=0)
+    number_diagnoses: int = Field(..., ge=1, le=16)
+    race_encoded: int = Field(..., ge=1, le=5)
+    gender_encoded: int = Field(..., ge=0, le=1)
+    admission_type_encoded: int = Field(..., ge=0, le=3)
+    discharge_encoded: int = Field(..., ge=0, le=4)
+    admission_source_encoded: int = Field(..., ge=0, le=2)
+    a1c_result_encoded: int = Field(..., ge=0, le=3)
+    metformin_encoded: int = Field(..., ge=0, le=3)
+    insulin_encoded: int = Field(..., ge=0, le=3)
 
 class PredictResponse(BaseModel):
-    prediction: int           # 0 o 1
-    probability: float        # score del modelo
-    model_name: str           # MLFLOW_MODEL_NAME
-    model_version: str        # versión en MLflow
-    model_alias: str          # "champion"
+    prediction: int
+    probability: float
+    model_name: str
+    model_version: str
+    model_alias: str
     response_time_ms: float
     request_id: str
