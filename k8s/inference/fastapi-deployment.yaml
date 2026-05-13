@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: fastapi
-          image: garzonds201/mlops-api:latest
+          image: max181818/mlops-api:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
