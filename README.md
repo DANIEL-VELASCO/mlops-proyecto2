@@ -223,6 +223,12 @@ Cada ejecución del pipeline entrena 3 modelos candidatos (LogisticRegression, R
 
 ![Prometheus Metrics](docs/screenshots/prometheus_metrics.png)
 
+### Grafana — Dashboard durante prueba de carga
+
+El dashboard "FastAPI - Diabetes MLOps" muestra el comportamiento de la API en tiempo real. Durante la prueba con Locust se observaron picos de hasta 123 req/s con latencia promedio de 11.7 ms y tasa de error del 0%.
+
+![Grafana Dashboard](docs/screenshots/grafana_dashboard.png)
+
 ### Streamlit — Interfaz de predicción
 
 ![Streamlit UI](docs/screenshots/streamlit_ui.png)
@@ -408,10 +414,67 @@ graph LR
     GRAF -->|"alertas"| OPS["Operaciones"]
 ```
 
-**Métricas expuestas por FastAPI:**
-- `http_requests_total` — Total de requests por endpoint y código de respuesta
-- `http_request_duration_seconds` — Latencia por endpoint (histograma)
-- `model_predictions_total` — Predicciones positivas/negativas acumuladas
+**Métricas expuestas por FastAPI (`/metrics`):**
+- `api_requests_total` — Total de requests por endpoint y código de respuesta
+- `api_latency_seconds` — Latencia por endpoint (histograma con percentiles p50/p95/p99)
+
+### Dashboard de Grafana
+
+El dashboard incluye los siguientes paneles:
+
+| Panel | Descripción |
+|-------|-------------|
+| Total Solicitudes | Contador acumulado de requests recibidos |
+| Solicitudes / seg | Tasa de requests en la última ventana de 1 minuto |
+| Latencia Promedio | Latencia media del endpoint `/predict` en milisegundos |
+| Total Errores | Cantidad de respuestas con código distinto de 2xx |
+| Tasa de Error | Porcentaje de respuestas fallidas sobre el total |
+| Latencia por Percentiles | Serie temporal con p50, p95 y p99 |
+| Latencia Promedio por Endpoint | Desglose de latencia por cada endpoint |
+| Tasa de Error (%) | Evolución temporal de la tasa de error |
+
+![Grafana Dashboard](docs/screenshots/grafana_dashboard.png)
+
+---
+
+## Pruebas de Carga — Locust
+
+Las pruebas se ejecutaron desde el pod de Locust dentro del cluster, apuntando directamente al servicio interno `http://fastapi-service:8000`. El escenario simula usuarios enviando requests al endpoint `/predict` con datos de paciente aleatorios.
+
+### Prueba con carga progresiva (10 usuarios iniciales, ramp-up agresivo)
+
+Se inició la prueba con 10 usuarios concurrentes y se fue incrementando la carga de forma progresiva. El sistema mantuvo un throughput de **7.81 req/s** y **0% de fallos** mientras el número de usuarios se mantuvo por debajo de ~30. Al escalar hacia los 100 usuarios, la latencia del p95 subió abruptamente hasta los **40,000 ms** y el cluster comenzó a perder requests, lo que indica el punto de saturación de la infraestructura local.
+
+| Parámetro | Valor |
+|-----------|-------|
+| Usuarios simulados (pico) | ~100 |
+| Tasa de llegada (spawn rate) | progresiva |
+| RPS en estado estable | 7.81 |
+| Latencia p50 (estado estable) | < 5 ms |
+| Latencia p95 (punto de saturación) | ~40,000 ms |
+| Fallos antes de saturación | 0% |
+| Punto de degradación | ~100 usuarios concurrentes |
+
+La degradación es consistente con los recursos asignados al cluster: cada réplica de FastAPI tiene un límite de 1000m CPU y 512Mi de memoria. Con 100 usuarios concurrentes ejecutando `predict_proba` de scikit-learn de forma síncrona, el scheduler de Kubernetes empieza a hacer throttling de CPU y los tiempos de respuesta se disparan.
+
+![Locust prueba carga alta](docs/screenshots/locust_pruebas_error.jpeg)
+
+### Prueba controlada (1 usuario, spawn rate 1)
+
+Tras la saturación del cluster, se realizó una prueba controlada con un único usuario para caracterizar el comportamiento base de la API en condiciones de carga mínima.
+
+| Parámetro | Valor |
+|-----------|-------|
+| Usuarios simulados | 1 |
+| Spawn rate | 1 usuario/s |
+| RPS | 0.79 |
+| Latencia p50 | ~20 ms |
+| Latencia p95 | ~70 ms |
+| Fallos | 29% |
+
+El 29% de fallos observado en la prueba de un usuario corresponde a timeouts intermitentes durante la recuperación del cluster después de la prueba anterior. La API responde correctamente cuando los recursos están disponibles, con latencias por debajo de 25 ms en condiciones normales.
+
+![Locust prueba 1 usuario](docs/screenshots/locust_pruebas_1user1second.jpeg.png)
 
 ---
 
