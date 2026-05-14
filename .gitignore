@@ -1,18 +1,7 @@
-# Variables de entorno reales — NUNCA subir al repo
-.env
-
-# Python
+.claude/
 __pycache__/
-*.py[cod]
+*.pyc
+*.pyo
+.env
 *.egg-info/
-.venv/
-venv/
-dist/
-build/
-
-# Jupyter
-.ipynb_checkpoints/
-
-# OS
-.DS_Store
-Thumbs.db
+.pytest_cache/
