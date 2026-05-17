@@ -727,6 +727,18 @@ En cada ejecución del DAG, la tarea `t7_train_model` entrena **3 modelos candid
 - **Criterio de promoción:** ROC-AUC estrictamente mayor al champion actual
 - **Artifact store:** MinIO (compatible S3)
 
+### Justificación de la métrica principal: ROC-AUC
+
+El dataset presenta un **desbalance de clases significativo**: solo el ~11% de los pacientes son readmitidos en menos de 30 días. En este escenario, el **accuracy no es una métrica útil** — un modelo que prediga siempre "no readmisión" obtendría ~89% de accuracy sin aportar ningún valor clínico.
+
+Se eligió **ROC-AUC** como métrica principal por las siguientes razones:
+
+1. **Independencia del umbral de decisión:** ROC-AUC evalúa la capacidad discriminativa del modelo en todos los umbrales posibles, lo que permite comparar modelos de forma justa sin asumir un punto de corte fijo.
+2. **Robusto ante desbalance de clases:** A diferencia del accuracy, ROC-AUC no se ve inflado por la clase mayoritaria, ya que evalúa la tasa de verdaderos positivos frente a la tasa de falsos positivos.
+3. **Relevancia clínica:** En readmisión hospitalaria, el costo de un falso negativo (no detectar un paciente que sí será readmitido) es alto. ROC-AUC captura este trade-off y permite al equipo clínico ajustar el umbral según su tolerancia al riesgo.
+
+El **Recall** y el **F1-Score** se reportan como métricas complementarias: el Recall mide qué fracción de los casos reales de readmisión son detectados, y el F1 balancea precisión y recall.
+
 ### Resultados Experimentales (MLflow — `diabetes_experiment`)
 
 Resultados consolidados de las 4 ejecuciones del pipeline sobre batches reales del dataset. Cada batch entrena los 3 candidatos y promueve automáticamente el de mayor ROC-AUC como `@champion`.
@@ -750,11 +762,25 @@ Resultados consolidados de las 4 ejecuciones del pipeline sobre batches reales d
 
 | Rama | Descripción |
 |------|-------------|
+| `main` | **Rama principal** — proyecto completo integrado (rama por defecto) |
 | `feat/p1-infra` | Infraestructura base (PostgreSQL, MinIO, Prometheus, Grafana, Locust) |
-| `feat/p2-airflow` | Orquestación Airflow + DAG + preprocessing |
 | `feat/p3-models-api` | MLflow + FastAPI + Streamlit + training |
 | `deploy_1_2` | Integración Persona 1 + Persona 2 con imagen Docker corregida |
-| `deploy1_2_3` | **Integración completa** de los 3 integrantes (rama de producción) |
+| `deploy1_2_3` | Integración completa de los 3 integrantes (origen de `main`) |
+
+---
+
+## Imágenes Docker — DockerHub
+
+Las imágenes construidas por el equipo están publicadas en DockerHub y son referenciadas directamente en los manifiestos de Kubernetes.
+
+| Componente | Imagen | DockerHub |
+|-----------|--------|-----------|
+| Airflow (webserver + scheduler) | `garzonds201/mlops-airflow:latest` | https://hub.docker.com/r/garzonds201/mlops-airflow |
+| FastAPI (inferencia) | `garzonds201/mlops-api:latest` | https://hub.docker.com/r/garzonds201/mlops-api |
+| Streamlit (frontend) | `max181818/mlops-frontend:latest` | https://hub.docker.com/r/max181818/mlops-frontend |
+
+> Las imágenes de infraestructura (`postgres:15`, `minio/minio`, `grafana/grafana`, `prom/prometheus`, `locustio/locust`, `ghcr.io/mlflow/mlflow:v2.11.3`) son imágenes oficiales y no requieren construcción propia.
 
 ---
 
