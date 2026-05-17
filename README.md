@@ -727,6 +727,23 @@ En cada ejecución del DAG, la tarea `t7_train_model` entrena **3 modelos candid
 - **Criterio de promoción:** ROC-AUC estrictamente mayor al champion actual
 - **Artifact store:** MinIO (compatible S3)
 
+### Resultados Experimentales (MLflow — `diabetes_experiment`)
+
+Resultados consolidados de las 4 ejecuciones del pipeline sobre batches reales del dataset. Cada batch entrena los 3 candidatos y promueve automáticamente el de mayor ROC-AUC como `@champion`.
+
+| Modelo | Config | ROC-AUC (val) | ROC-AUC (test) | F1 (test) | Recall (test) |
+|--------|--------|:-------------:|:--------------:|:---------:|:-------------:|
+| **RandomForest** ⭐ | 50 trees, depth 10 | 0.6707 | **0.6655** | **0.2753** | 0.468 |
+| RandomForest | 50 trees, depth 10 | 0.6642 | 0.6573 | 0.2688 | 0.423 |
+| RandomForest | 50 trees, depth 10 | 0.6584 | 0.6507 | 0.2671 | 0.470 |
+| LogisticRegression | C=1.0 | 0.6455 | 0.6494 | 0.2609 | 0.517 |
+| LogisticRegression | C=1.0 | 0.6447 | 0.6438 | 0.2573 | 0.510 |
+| LogisticRegression | C=1.0 | 0.6431 | 0.6308 | 0.2418 | 0.480 |
+| RandomForest | 100 trees, depth 15 | 0.6421 | 0.6363 | 0.1885 | 0.161 |
+| RandomForest | 100 trees, depth 15 | 0.6413 | 0.6258 | 0.1892 | 0.168 |
+
+> ⭐ **Modelo champion en producción:** `RandomForest (50 trees, depth 10)` — mejor ROC-AUC en test (0.6655). Curiosamente, aumentar la capacidad del modelo (100 trees, depth 15) produce sobreajuste y empeora el rendimiento en test. El modelo activo en la API es la versión `v11` con alias `@champion`.
+
 ---
 
 ## Ramas del Repositorio
